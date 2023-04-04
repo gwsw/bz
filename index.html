@@ -29,6 +29,7 @@ var _fps_last = 0;
 
 var config = {
     fps_interval              : 4000,
+    neighborhood              : 1, // 9 squares
     show_fps                  : true,
 
     color_bg                  : "000000",
@@ -143,15 +144,14 @@ class Board {
                 this.squares[y].push(new Square(x,y));
             }
         }
-        const rad = 1;
         for (let y = 0; y < ny; ++y) {
             for (let x = 0; x < nx; ++x) {
                 this.squares[y][x].neighbors = [];
-                for (let dy = -rad; dy <= rad; ++dy) {
+                for (let dy = -config.neighborhood; dy <= config.neighborhood; ++dy) {
                     let yi = y + dy;
                     if (yi < 0) yi += ny;
                     if (yi >= ny) yi -= ny;
-                    for (let dx = -rad; dx <= rad; ++dx) {
+                    for (let dx = -config.neighborhood; dx <= config.neighborhood; ++dx) {
                         let xi = x + dx;
                         if (xi < 0) xi += nx;
                         if (xi >= nx) xi -= nx;
@@ -175,8 +175,9 @@ class Board {
         }
     }
     draw_fps() {
-        this.gfx.draw_rect(0,0,140,40, config.color_bg);
-        this.gfx.draw_text(0,0, 32, _fps_last.toString(), config.color_white);
+        const font_h = 30;
+        this.gfx.draw_rect(0, 0, this.gfx.ctx.canvas.width, font_h+20, config.color_bg);
+        this.gfx.draw_text(0,0, font_h, _fps_last.toString(), config.color_white);
         ///this.gfx.draw_text(0,32, 32, _fps_frames.toString(), config.color_white);
     }
     frame_event() {
@@ -301,6 +302,9 @@ function main() {
     let ny = params.get("h");
     nx = (nx != null) ? parseInt(nx, 10) : canvas.width < 200 ? canvas.width : 200;
     ny = (ny != null) ? parseInt(ny, 10) : canvas.height < 200 ? canvas.height : 200;
+    const neighborhood = params.get("radius");
+    if (neighborhood != null)
+        config.neighborhood = parseInt(neighborhood, 10);
 
     const tune0 = params.get("tune0");
     const tune1 = params.get("tune1");
