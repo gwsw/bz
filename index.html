@@ -25,9 +25,9 @@ var config = {
     color_white               : "ffffff",
 };
 
-var t0 = Math.pow(1.4, config.rate0);
-var t1 = Math.pow(1.4, config.rate1);
-var t2 = Math.pow(1.4, config.rate2);
+var t0;
+var t1;
+var t2;
 
 // --------------------------------------------------------------------
 class Color {
@@ -41,9 +41,9 @@ class Color {
         return "#" + this.hex();
     }
     set(r,g,b) {
-        this.r = r;
-        this.g = g;
-        this.b = b;
+        this.r = Math.floor(r);
+        this.g = Math.floor(g);
+        this.b = Math.floor(b);
     }
     red()   { return this.r; }
     green() { return this.g; }
@@ -184,10 +184,10 @@ class Board {
                     r1 += neighbor.r1;
                     r2 += neighbor.r2;
                 }
-                const len = sq.neighbors.length;
-                r0 /= len;
-                r1 /= len;
-                r2 /= len;
+                const num_neighbors = sq.neighbors.length;
+                r0 /= num_neighbors;
+                r1 /= num_neighbors;
+                r2 /= num_neighbors;
                 if (r0 > 1) r0 = 1;
                 if (r1 > 1) r1 = 1;
                 if (r2 > 1) r2 = 1;
@@ -285,8 +285,17 @@ function main() {
     const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.08);
     let nx = params.get("w");
     let ny = params.get("h");
+    let rate0 = params.get("rate0");
+    let rate1 = params.get("rate1");
+    let rate2 = params.get("rate2");
     nx = (nx != null) ? parseInt(nx, 10) : canvas.width < 200 ? canvas.width : 200;
     ny = (ny != null) ? parseInt(ny, 10) : canvas.height < 200 ? canvas.height : 200;
+    rate0 = (rate0 != null) ? parseFloat(rate0) : 0;
+    rate1 = (rate1 != null) ? parseFloat(rate1) : 0;
+    rate2 = (rate2 != null) ? parseFloat(rate2) : 0;
+    t0 = Math.pow(1.4, rate0);
+    t1 = Math.pow(1.4, rate1);
+    t2 = Math.pow(1.4, rate2);
     _game = new Game(gfx, nx, ny, params.get("fps"));
     run_game();
 }
