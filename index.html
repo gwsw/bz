@@ -1,5 +1,15 @@
 <!doctype html>
 <meta charset="UTF-8">
+<!--
+    Simulate a Belousov-Zhabotinsky reaction.
+    URL parameters:
+    w=N       Number of cells in the x direction.
+    h=N       Number of cells in the y direction.
+    tune0=N   Tuning parameter for red reactant (default 1).
+    tune1=N   Tuning parameter for green reactant (default 1).
+    tune2=N   Tuning parameter for blue reactant (default 1).
+    fps=1     Display frame rate.
+-->
 <html>
 <head>
 <title>BZ Reaction</title>
@@ -9,6 +19,9 @@
 <script>
 
 var _game = null;
+var _tune0 = 0;
+var _tune1 = 0;
+var _tune2 = 0;
 
 var _fps_frames = 0;
 var _fps_tm = 0;
@@ -16,18 +29,12 @@ var _fps_last = 0;
 
 var config = {
     fps_interval              : 4000,
-    rate0                     : 0,
-    rate1                     : 0,
-    rate2                     : 0,
     show_fps                  : true,
 
     color_bg                  : "000000",
     color_white               : "ffffff",
 };
 
-var t0;
-var t1;
-var t2;
 
 // --------------------------------------------------------------------
 class Color {
@@ -172,7 +179,20 @@ class Board {
         this.gfx.draw_text(0,0, 32, _fps_last.toString(), config.color_white);
         ///this.gfx.draw_text(0,32, 32, _fps_frames.toString(), config.color_white);
     }
+    frame_event() {
+        const tm = now();
+        if (tm > _fps_tm + config.fps_interval) {
+            _fps_last = 1000*_fps_frames / (tm - _fps_tm);
+            _fps_frames = 0;
+            _fps_tm = tm;
+        } else {
+            ++_fps_frames;
+        }
+    }
     update(oboard) {
+        const t0 = _tune0;
+        const t1 = _tune1;
+        const t2 = _tune2;
         for (let y = 0; y < this.ny; ++y) {
             for (let x = 0; x < this.nx; ++x) {
                 const sq = this.squares[y][x];
@@ -207,17 +227,11 @@ class Game {
         this.board2 = new Board(gfx, nx, ny);
         this.board = this.board1;
         this.oboard = this.board2;
-        this.show_fps = (show_fps != undefined);
+        this.show_fps = show_fps;
     }
     run() {
-        const tm = now();
-        if (tm > _fps_tm + config.fps_interval) {
-            _fps_last = 1000*_fps_frames / config.fps_interval;
-            _fps_frames = 0;
-            _fps_tm = tm;
-        } else {
-            ++_fps_frames;
-        }
+        if (this.show_fps)
+            this.board.frame_event();
         this.board.update(this.oboard);
         this.swap_boards();
         this.board.draw();
@@ -285,18 +299,17 @@ function main() {
     const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.08);
     let nx = params.get("w");
     let ny = params.get("h");
-    let rate0 = params.get("rate0");
-    let rate1 = params.get("rate1");
-    let rate2 = params.get("rate2");
     nx = (nx != null) ? parseInt(nx, 10) : canvas.width < 200 ? canvas.width : 200;
     ny = (ny != null) ? parseInt(ny, 10) : canvas.height < 200 ? canvas.height : 200;
-    rate0 = (rate0 != null) ? parseFloat(rate0) : 0;
-    rate1 = (rate1 != null) ? parseFloat(rate1) : 0;
-    rate2 = (rate2 != null) ? parseFloat(rate2) : 0;
-    t0 = Math.pow(1.4, rate0);
-    t1 = Math.pow(1.4, rate1);
-    t2 = Math.pow(1.4, rate2);
-    _game = new Game(gfx, nx, ny, params.get("fps"));
+
+    const tune0 = params.get("tune0");
+    const tune1 = params.get("tune1");
+    const tune2 = params.get("tune2");
+    _tune0 = (tune0 != null) ? parseFloat(tune0) : 1;
+    _tune1 = (tune1 != null) ? parseFloat(tune1) : 1;
+    _tune2 = (tune2 != null) ? parseFloat(tune2) : 1;
+
+    _game = new Game(gfx, nx, ny, params.get("fps") != undefined);
     run_game();
 }
 
