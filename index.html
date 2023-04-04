@@ -33,7 +33,7 @@ var config = {
     show_fps                  : true,
 
     color_bg                  : "000000",
-    color_white               : "ffffff",
+    color_fg                  : "ffffff",
 };
 
 
@@ -115,6 +115,12 @@ class Square {
         this.set(Math.random(), Math.random(), Math.random());
     }
     set(r0,r1,r2) {
+        if (r0 < 0) r0 = 0;
+        if (r1 < 0) r1 = 0;
+        if (r2 < 0) r2 = 0;
+        if (r0 > 1) r0 = 1;
+        if (r1 > 1) r1 = 1;
+        if (r2 > 1) r2 = 1;
         this.r0 = r0;
         this.r1 = r1;
         this.r2 = r2;
@@ -176,9 +182,10 @@ class Board {
     }
     draw_fps() {
         const font_h = 30;
-        this.gfx.draw_rect(0, 0, this.gfx.ctx.canvas.width, font_h+20, config.color_bg);
-        this.gfx.draw_text(0,0, font_h, _fps_last.toString(), config.color_white);
-        ///this.gfx.draw_text(0,32, 32, _fps_frames.toString(), config.color_white);
+        this.gfx.ctx.globalAlpha = 0.5;
+        this.gfx.draw_rect(0, 0, this.gfx.ctx.canvas.width, font_h+4, config.color_bg);
+        this.gfx.draw_text(font_h, 0, font_h, _fps_last.toFixed(2), config.color_fg);
+        this.gfx.ctx.globalAlpha = 1;
     }
     frame_event() {
         const tm = now();
@@ -209,9 +216,6 @@ class Board {
                 r0 /= num_neighbors;
                 r1 /= num_neighbors;
                 r2 /= num_neighbors;
-                if (r0 > 1) r0 = 1;
-                if (r1 > 1) r1 = 1;
-                if (r2 > 1) r2 = 1;
                 const n0 = r0 + r0 * (t0 * r1 - t1 * r2);
                 const n1 = r1 + r1 * (t1 * r2 - t2 * r0);
                 const n2 = r2 + r2 * (t2 * r0 - t0 * r1);
