@@ -1,0 +1,267 @@
+<!doctype html>
+<meta charset="UTF-8">
+<html>
+<head>
+<title>BZ Reaction</title>
+</head>
+<body onload="main()">
+<canvas id="canvas" width="1" height="1" style="font-family:Arial"></canvas>
+<script>
+
+var _game = null;
+var _rate0 = 0;
+var _rate1 = 0;
+var _rate2 = 0;
+
+var config = {
+    color_bg                  : "000000",
+};
+
+// --------------------------------------------------------------------
+class Color {
+    constructor(r,g,b) {
+        this.set(r,g,b);
+    }
+    hex() {
+        return hex2(this.r) + hex2(this.g) + hex2(this.b);
+    }
+    jstring() {
+        return "#" + this.hex();
+    }
+    set(r,g,b) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+    }
+    red()   { return this.r; }
+    green() { return this.g; }
+    blue()  { return this.b; }
+};
+
+// --------------------------------------------------------------------
+class Graphics {
+    constructor(ctx, font_size) {
+        this.ctx = ctx;
+        ctx.font = Math.floor(font_size).toString()+"px sans-serif";
+        this.font_height = font_size;
+    }
+    clear(color) {
+        const canvas = this.ctx.canvas;
+        const w = canvas.width;
+        const h = canvas.height;
+        this.ctx.clearRect(0, 0, w, h);
+        this.draw_rect(0, 0, w, h, color);
+    }
+    draw_rect(x, y, w, h, color) {
+        if (color != undefined && color != null) this.ctx.fillStyle = color.jstring();
+        this.ctx.fillRect(x, y, w, h);
+    }
+    draw_centered_rect(cx, cy, w, h, color) {
+        this.draw_rect(cx - w/2, cy - h/2, w, h, color);
+    }
+    draw_outline(x, y, w, h, xb, yb, color) {
+        this.draw_rect(x,      y,       w-xb,   yb,   color);
+        this.draw_rect(x+w-xb, y,       xb,     h-yb, color);
+        this.draw_rect(x+xb,   y+h-yb,  w-xb,   yb,   color);
+        this.draw_rect(x,      y+yb,    xb,     h-yb, color);
+    }
+    draw_centered_outline(cx, cy, w, h, xb, yb, color) {
+        this.draw_outline(cx - w/2, cy - h/2, w, h, xb, yb, color);
+    }
+    draw_outlined_rect(x, y, w, h, xb, yb, bg_color, border_color) {
+        this.draw_rect(x+xb, y+yb, w-2*xb, h-2*yb, bg_color);
+        this.draw_outline(x, y, w, h, xb, yb, border_color);
+    }
+    draw_circle(x, y, r, color) {
+        this.ctx.beginPath();
+        this.ctx.fillStyle = color.jstring();
+        this.ctx.arc(x, y, r, 0, 2*Math.PI);
+        this.ctx.fill();
+    }
+    draw_text(x, y, text, color) {
+        this.ctx.fillStyle = color.jstring();
+        this.ctx.fillText(text, x, y+this.font_height);
+    }
+}; // class Graphics
+
+// --------------------------------------------------------------------
+class Square {
+    constructor(x,y) {
+        this.x = x;
+        this.y = y;
+        ///this.set(Math.random(), Math.random(), Math.random());
+const r0 = ((x+0)*y) % 100 / 100;
+const r1 = ((x+1)*y) % 100 / 100;
+const r2 = ((x+2)*y) % 100 / 100;
+this.set(r0,r1,r2);
+    }
+    set(r0,r1,r2) {
+        this.r0 = r0;
+        this.r1 = r1;
+        this.r2 = r2;
+    }
+    color() {
+        return new Color(this.r0 * 256, this.r1 * 256, this.r2 * 256);
+    }
+    draw(gfx, sq_width, sq_height) {
+        gfx.draw_rect(Math.floor(this.x*sq_width), Math.floor(this.y*sq_height), sq_width, sq_height, this.color());
+    }
+}; // class Square
+
+// --------------------------------------------------------------------
+class Board {
+    constructor(gfx, nx = 0, ny = 0) {
+        this.gfx = gfx;
+        const w = gfx.ctx.canvas.width;
+        const h = gfx.ctx.canvas.height;
+        if (nx <= 0) nx = w;
+        if (ny <= 0) ny = h;
+        this.nx = nx;
+        this.ny = ny;
+        this.squares = [];
+        for (let y = 0; y < ny; ++y) {
+            this.squares.push([]);
+            for (let x = 0; x < nx; ++x) {
+                this.squares[y].push(new Square(x,y));
+            }
+        }
+        const rad = 1;
+        for (let y = 0; y < ny; ++y) {
+            for (let x = 0; x < nx; ++x) {
+                this.squares[y][x].neighbors = [];
+                for (let dy = -rad; dy <= rad; ++dy) {
+                    let yi = y + dy;
+                    if (yi < 0) yi += ny;
+                    if (yi >= ny) yi -= ny;
+                    for (let dx = -rad; dx <= rad; ++dx) {
+                        let xi = x + dx;
+                        if (xi < 0) xi += nx;
+                        if (xi >= nx) xi -= nx;
+                        this.squares[y][x].neighbors.push(this.squares[yi][xi]);
+                    }
+                }
+            }
+        }
+    }
+    draw() {
+        const canvas = this.gfx.ctx.canvas;
+        const sq_width = canvas.width / this.nx;
+        const sq_height = canvas.height / this.ny;
+        this.gfx.clear(config.color_bg);
+        for (const row of this.squares) {
+            for (const sq of row) {
+                sq.draw(this.gfx, sq_width, sq_height);
+            }
+        }
+    }
+    update(oboard) {
+        const t0 = Math.pow(1.4, _rate0);
+        const t1 = Math.pow(1.4, _rate1);
+        const t2 = Math.pow(1.4, _rate2);
+        for (let y = 0; y < this.ny; ++y) {
+            for (let x = 0; x < this.nx; ++x) {
+                const sq = this.squares[y][x];
+                let r0 = 0;
+                let r1 = 0;
+                let r2 = 0;
+                for (let neighbor of sq.neighbors) {
+                    r0 += neighbor.r0;
+                    r1 += neighbor.r1;
+                    r2 += neighbor.r2;
+                }
+                r0 /= sq.neighbors.length;
+                r1 /= sq.neighbors.length;
+                r2 /= sq.neighbors.length;
+                if (r0 > 1) r0 = 1;
+                if (r1 > 1) r1 = 1;
+                if (r2 > 1) r2 = 1;
+                const n0 = r0 + r0 * ( t0 * r1 - t1 * r2);
+                const n1 = r1 + r1 * ( t1 * r2 - t2 * r0);
+                const n2 = r2 + r2 * ( t2 * r0 - t0 * r1);
+                oboard.squares[y][x].set(n0,n1,n2);
+            }
+        }
+    }
+}; // class Board
+
+// --------------------------------------------------------------------
+class Game {
+    constructor(gfx, nx, ny) {
+        this.board1 = new Board(gfx, nx, ny);
+        this.board2 = new Board(gfx, nx, ny);
+        this.board = this.board1;
+        this.oboard = this.board2;
+    }
+    run() {
+        this.board.update(this.oboard);
+        this.swap_boards();
+        this.board.draw();
+    }
+    swap_boards() {
+        const tboard = this.board;
+        this.board = this.oboard;
+        this.oboard = tboard;
+    }
+}; // class Game
+
+// --------------------------------------------------------------------
+
+function now() {
+    return performance.now();
+}
+
+function padnum(num, len, radix) {
+    return Math.floor(num).toString(radix).padStart(len,"0");
+}
+function hex2(num) { return padnum(num, 2, 16); }
+
+function randu(n) {
+    return Math.floor(Math.random() * n);
+}
+
+function canvas_size(name, w, h) {
+    const canvas = el(name);
+    canvas.width = w;
+    canvas.height = h;
+    return canvas;
+}
+
+function canvas_resize() {
+    const s = 20;
+    return canvas_size("canvas", window.innerWidth - s, window.innerHeight - s);
+}
+
+function munge_config() {
+    for (const [key,value] of Object.entries(config)) {
+        if (key.substr(0,6) == "color_")
+            config[key] = new Color(config[key]);
+    }
+}
+
+function el(name) {
+    return document.getElementById(name);
+}
+
+function run_game() {
+    _game.run();
+    window.requestAnimationFrame(run_game);
+}
+
+function main() {
+    munge_config();
+    const params = new URLSearchParams(window.location.search);
+    const canvas = canvas_resize();
+    const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.028);
+
+    let nx = params.get("w");
+    nx = (nx == null) ? canvas.width : parseInt(nx, 10);
+    let ny = params.get("h");
+    ny = (ny == null) ? canvas.height : parseInt(ny, 10);
+
+    _game = new Game(gfx, nx, ny);
+    run_game();
+}
+
+</script>
+</body>
+</html>
