@@ -9,12 +9,18 @@
 <script>
 
 var _game = null;
-var _rate0 = 0;
-var _rate1 = 0;
-var _rate2 = 0;
+
+var _fps_interval = 4000;
+var _fps_frames = 0;
+var _fps_tm = 0;
+var _fps_last = 0;
 
 var config = {
+    rate0                     : 0,
+    rate1                     : 0,
+    rate2                     : 0,
     color_bg                  : "000000",
+    color_white               : "ffffff",
 };
 
 // --------------------------------------------------------------------
@@ -89,11 +95,7 @@ class Square {
     constructor(x,y) {
         this.x = x;
         this.y = y;
-        ///this.set(Math.random(), Math.random(), Math.random());
-const r0 = ((x+0)*y) % 100 / 100;
-const r1 = ((x+1)*y) % 100 / 100;
-const r2 = ((x+2)*y) % 100 / 100;
-this.set(r0,r1,r2);
+        this.set(Math.random(), Math.random(), Math.random());
     }
     set(r0,r1,r2) {
         this.r0 = r0;
@@ -153,11 +155,14 @@ class Board {
                 sq.draw(this.gfx, sq_width, sq_height);
             }
         }
+this.gfx.draw_rect(0,0,140,80, config.color_bg);
+this.gfx.draw_text(0,0, _fps_last.toString(), config.color_white);
+this.gfx.draw_text(0,32, _fps_frames.toString(), config.color_white);
     }
     update(oboard) {
-        const t0 = Math.pow(1.4, _rate0);
-        const t1 = Math.pow(1.4, _rate1);
-        const t2 = Math.pow(1.4, _rate2);
+        const t0 = Math.pow(1.4, config.rate0);
+        const t1 = Math.pow(1.4, config.rate1);
+        const t2 = Math.pow(1.4, config.rate2);
         for (let y = 0; y < this.ny; ++y) {
             for (let x = 0; x < this.nx; ++x) {
                 const sq = this.squares[y][x];
@@ -193,6 +198,14 @@ class Game {
         this.oboard = this.board2;
     }
     run() {
+        const tm = now();
+        if (tm > _fps_tm + _fps_interval) {
+            _fps_last = 1000*_fps_frames / _fps_interval;
+            _fps_frames = 0;
+            _fps_tm = tm;
+        } else {
+            ++_fps_frames;
+        }
         this.board.update(this.oboard);
         this.swap_boards();
         this.board.draw();
@@ -233,8 +246,12 @@ function canvas_resize() {
 
 function munge_config() {
     for (const [key,value] of Object.entries(config)) {
-        if (key.substr(0,6) == "color_")
-            config[key] = new Color(config[key]);
+        if (key.substr(0,6) == "color_") {
+            const r = parseInt(value.substr(0,2), 16);
+            const g = parseInt(value.substr(2,2), 16);
+            const b = parseInt(value.substr(4,2), 16);
+            config[key] = new Color(r,g,b);
+        }
     }
 }
 
@@ -251,7 +268,7 @@ function main() {
     munge_config();
     const params = new URLSearchParams(window.location.search);
     const canvas = canvas_resize();
-    const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.028);
+    const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.08);
 
     let nx = params.get("w");
     nx = (nx == null) ? canvas.width : parseInt(nx, 10);
