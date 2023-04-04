@@ -10,18 +10,24 @@
 
 var _game = null;
 
-var _fps_interval = 4000;
 var _fps_frames = 0;
 var _fps_tm = 0;
 var _fps_last = 0;
 
 var config = {
+    fps_interval              : 4000,
     rate0                     : 0,
     rate1                     : 0,
     rate2                     : 0,
+    show_fps                  : true,
+
     color_bg                  : "000000",
     color_white               : "ffffff",
 };
+
+var t0 = Math.pow(1.4, config.rate0);
+var t1 = Math.pow(1.4, config.rate1);
+var t2 = Math.pow(1.4, config.rate2);
 
 // --------------------------------------------------------------------
 class Color {
@@ -46,10 +52,9 @@ class Color {
 
 // --------------------------------------------------------------------
 class Graphics {
-    constructor(ctx, font_size) {
+    constructor(ctx) {
         this.ctx = ctx;
-        ctx.font = Math.floor(font_size).toString()+"px sans-serif";
-        this.font_height = font_size;
+        this.font_size = 0;
     }
     clear(color) {
         const canvas = this.ctx.canvas;
@@ -84,9 +89,13 @@ class Graphics {
         this.ctx.arc(x, y, r, 0, 2*Math.PI);
         this.ctx.fill();
     }
-    draw_text(x, y, text, color) {
+    draw_text(x, y, font_size, text, color) {
+        if (font_size != this.font_size) {
+            this.ctx.font = Math.floor(font_size).toString()+"px sans-serif";
+            this.font_size = font_size;
+        }
         this.ctx.fillStyle = color.jstring();
-        this.ctx.fillText(text, x, y+this.font_height);
+        this.ctx.fillText(text, x, y+this.font_size);
     }
 }; // class Graphics
 
@@ -147,22 +156,23 @@ class Board {
     }
     draw() {
         const canvas = this.gfx.ctx.canvas;
-        const sq_width = canvas.width / this.nx;
-        const sq_height = canvas.height / this.ny;
+        let sq_width = Math.floor(canvas.width / this.nx);
+        let sq_height = Math.floor(canvas.height / this.ny);
+        sq_width = sq_height = Math.min(sq_width, sq_height);
+
         this.gfx.clear(config.color_bg);
         for (const row of this.squares) {
             for (const sq of row) {
                 sq.draw(this.gfx, sq_width, sq_height);
             }
         }
-this.gfx.draw_rect(0,0,140,80, config.color_bg);
-this.gfx.draw_text(0,0, _fps_last.toString(), config.color_white);
-this.gfx.draw_text(0,32, _fps_frames.toString(), config.color_white);
+    }
+    draw_fps() {
+        this.gfx.draw_rect(0,0,140,40, config.color_bg);
+        this.gfx.draw_text(0,0, 32, _fps_last.toString(), config.color_white);
+        ///this.gfx.draw_text(0,32, 32, _fps_frames.toString(), config.color_white);
     }
     update(oboard) {
-        const t0 = Math.pow(1.4, config.rate0);
-        const t1 = Math.pow(1.4, config.rate1);
-        const t2 = Math.pow(1.4, config.rate2);
         for (let y = 0; y < this.ny; ++y) {
             for (let x = 0; x < this.nx; ++x) {
                 const sq = this.squares[y][x];
@@ -174,15 +184,16 @@ this.gfx.draw_text(0,32, _fps_frames.toString(), config.color_white);
                     r1 += neighbor.r1;
                     r2 += neighbor.r2;
                 }
-                r0 /= sq.neighbors.length;
-                r1 /= sq.neighbors.length;
-                r2 /= sq.neighbors.length;
+                const len = sq.neighbors.length;
+                r0 /= len;
+                r1 /= len;
+                r2 /= len;
                 if (r0 > 1) r0 = 1;
                 if (r1 > 1) r1 = 1;
                 if (r2 > 1) r2 = 1;
-                const n0 = r0 + r0 * ( t0 * r1 - t1 * r2);
-                const n1 = r1 + r1 * ( t1 * r2 - t2 * r0);
-                const n2 = r2 + r2 * ( t2 * r0 - t0 * r1);
+                const n0 = r0 + r0 * (t0 * r1 - t1 * r2);
+                const n1 = r1 + r1 * (t1 * r2 - t2 * r0);
+                const n2 = r2 + r2 * (t2 * r0 - t0 * r1);
                 oboard.squares[y][x].set(n0,n1,n2);
             }
         }
@@ -191,16 +202,17 @@ this.gfx.draw_text(0,32, _fps_frames.toString(), config.color_white);
 
 // --------------------------------------------------------------------
 class Game {
-    constructor(gfx, nx, ny) {
+    constructor(gfx, nx, ny, show_fps) {
         this.board1 = new Board(gfx, nx, ny);
         this.board2 = new Board(gfx, nx, ny);
         this.board = this.board1;
         this.oboard = this.board2;
+        this.show_fps = (show_fps != undefined);
     }
     run() {
         const tm = now();
-        if (tm > _fps_tm + _fps_interval) {
-            _fps_last = 1000*_fps_frames / _fps_interval;
+        if (tm > _fps_tm + config.fps_interval) {
+            _fps_last = 1000*_fps_frames / config.fps_interval;
             _fps_frames = 0;
             _fps_tm = tm;
         } else {
@@ -209,6 +221,8 @@ class Game {
         this.board.update(this.oboard);
         this.swap_boards();
         this.board.draw();
+        if (this.show_fps)
+            this.board.draw_fps();
     }
     swap_boards() {
         const tboard = this.board;
@@ -269,13 +283,11 @@ function main() {
     const params = new URLSearchParams(window.location.search);
     const canvas = canvas_resize();
     const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.08);
-
     let nx = params.get("w");
-    nx = (nx == null) ? canvas.width : parseInt(nx, 10);
     let ny = params.get("h");
-    ny = (ny == null) ? canvas.height : parseInt(ny, 10);
-
-    _game = new Game(gfx, nx, ny);
+    nx = (nx != null) ? parseInt(nx, 10) : canvas.width < 200 ? canvas.width : 200;
+    ny = (ny != null) ? parseInt(ny, 10) : canvas.height < 200 ? canvas.height : 200;
+    _game = new Game(gfx, nx, ny, params.get("fps"));
     run_game();
 }
 
