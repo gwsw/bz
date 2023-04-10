@@ -154,31 +154,39 @@ class Board {
             for (let x = 0; x < nx; ++x) {
                 this.squares[y][x].neighbors = [];
                 for (let dy = -config.neighborhood; dy <= config.neighborhood; ++dy) {
-                    let yi = y + dy;
-                    if (yi < 0) yi += ny;
-                    if (yi >= ny) yi -= ny;
+                    const yi = wrap(y+dy, ny);
                     for (let dx = -config.neighborhood; dx <= config.neighborhood; ++dx) {
-                        let xi = x + dx;
-                        if (xi < 0) xi += nx;
-                        if (xi >= nx) xi -= nx;
+                        const xi = wrap(x+dx, nx);
                         this.squares[y][x].neighbors.push(this.squares[yi][xi]);
                     }
                 }
             }
         }
     }
-    draw() {
+    sq_size() {
         const canvas = this.gfx.ctx.canvas;
         let sq_width = Math.floor(canvas.width / this.nx);
         let sq_height = Math.floor(canvas.height / this.ny);
-        sq_width = sq_height = Math.min(sq_width, sq_height);
-
+        const sq_size = Math.min(sq_width, sq_height); // make visually square
+        return { sq_width:sq_size, sq_height:sq_size };
+    }
+    draw() {
+        const sq_size = this.sq_size();
         this.gfx.clear(config.color_bg);
         for (const row of this.squares) {
             for (const sq of row) {
-                sq.draw(this.gfx, sq_width, sq_height);
+                sq.draw(this.gfx, sq_size.sq_width, sq_size.sq_height);
             }
         }
+    }
+    draw_grid() {
+        const gfx = this.gfx;
+        const w = gfx.ctx.canvas.width;
+        const h = gfx.ctx.canvas.height;
+        for (let x = 0; x < w; x += 100)
+            gfx.draw_rect(x, 0, 1, h, config.color_fg);
+        for (let y = 0; y < h; y += 100)
+            gfx.draw_rect(0, y, w, 1, config.color_fg);
     }
     draw_fps() {
         const font_h = 30;
@@ -186,6 +194,19 @@ class Board {
         this.gfx.draw_rect(0, 0, this.gfx.ctx.canvas.width, font_h+4, config.color_bg);
         this.gfx.draw_text(font_h, 0, font_h, _fps_last.toFixed(2), config.color_fg);
         this.gfx.ctx.globalAlpha = 1;
+    }
+    tap(x, y) {
+        const tap_radius = 12;
+        const tap_radius2 = tap_radius * tap_radius;
+        for (let dy = -tap_radius; dy < tap_radius; ++dy) {
+            for (let dx = -tap_radius; dx < tap_radius; ++dx) {
+                if (dx*dx + dy*dy <= tap_radius2) {
+                    const xi = wrap(x+dx, this.nx);
+                    const yi = wrap(y+dy, this.ny);
+                    this.squares[yi][xi].set(0,0,.5);
+                }
+            }
+        }
     }
     frame_event() {
         const tm = now();
@@ -248,6 +269,13 @@ class Game {
         this.board = this.oboard;
         this.oboard = tboard;
     }
+    static _event_mousedown(e) {
+        if (_game != null) _game.event_mouse(e.clientX, e.clientY, true);
+    }
+    event_mouse(x, y, down) {
+        const sq = this.board.sq_size();
+        this.board.tap(Math.floor(x/sq.sq_width), Math.floor(y/sq.sq_height));
+    }
 }; // class Game
 
 // --------------------------------------------------------------------
@@ -263,6 +291,12 @@ function hex2(num) { return padnum(num, 2, 16); }
 
 function randu(n) {
     return Math.floor(Math.random() * n);
+}
+
+function wrap(n, count) {
+    while (n < 0) n += count;
+    while (n >= count) n -= count;
+    return n;
 }
 
 function canvas_size(name, w, h) {
@@ -317,6 +351,7 @@ function main() {
     _tune1 = (tune1 != null) ? parseFloat(tune1) : 1;
     _tune2 = (tune2 != null) ? parseFloat(tune2) : 1;
 
+    document.addEventListener("mousedown", Game._event_mousedown);
     _game = new Game(gfx, nx, ny, params.get("fps") != undefined);
     run_game();
 }
