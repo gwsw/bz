@@ -27,10 +27,14 @@ var _fps_frames = 0;
 var _fps_tm = 0;
 var _fps_last = 0;
 
+
 var config = {
     fps_interval              : 4000,
     neighborhood              : 1, // 9 squares
     show_fps                  : true,
+    mouse_down                : 1,
+    mouse_up                  : 2,
+    mouse_move                : 3,
 
     color_bg                  : "000000",
     color_fg                  : "ffffff",
@@ -249,13 +253,20 @@ class Board {
 // --------------------------------------------------------------------
 class Game {
     constructor(gfx, nx, ny, show_fps) {
+        this.gfx = gfx; // for menu
         this.board1 = new Board(gfx, nx, ny);
         this.board2 = new Board(gfx, nx, ny);
         this.board = this.board1;
         this.oboard = this.board2;
         this.show_fps = show_fps;
+        this.menu_up = false;
     }
     run() {
+        if (this.menu_up) {
+            this.board.draw();
+            this.draw_menu();
+            return;
+        }
         if (this.show_fps)
             this.board.frame_event();
         this.board.update(this.oboard);
@@ -269,12 +280,35 @@ class Game {
         this.board = this.oboard;
         this.oboard = tboard;
     }
-    static _event_mousedown(e) {
-        if (_game != null) _game.event_mouse(e.clientX, e.clientY, true);
+    draw_menu() {
     }
-    event_mouse(x, y, down) {
-        const sq = this.board.sq_size();
-        this.board.tap(Math.floor(x/sq.sq_width), Math.floor(y/sq.sq_height));
+    menu(up) {
+        this.menu_up = up;
+    }
+    static _event_mousedown(e) {
+        if (_game == null) return;
+        if (e.shiftKey)
+            _game.menu(!_game.menu_up);
+        else
+            _game.event_mouse(e.clientX, e.clientY, config.mouse_down);
+    }
+    static _event_mouseup(e) {
+        if (_game == null) return;
+        _game.event_mouse(e.clientX, e.clientY, config.mouse_up);
+    }
+    static _event_mousemove(e) {
+        if (_game == null) return;
+        _game.event_mouse(e.clientX, e.clientY, config.mouse_move);
+    }
+    event_mouse(x, y, event) {
+        if (event == config.mouse_down)
+            this.mouse_down = true;
+        if (event == config.mouse_up)
+            this.mouse_down = false;
+        if (event == config.mouse_down || (event == config.mouse_move && this.mouse_down)) {
+            const sq = this.board.sq_size();
+            this.board.tap(Math.floor(x/sq.sq_width), Math.floor(y/sq.sq_height));
+        }
     }
 }; // class Game
 
@@ -352,6 +386,8 @@ function main() {
     _tune2 = (tune2 != null) ? parseFloat(tune2) : 1;
 
     document.addEventListener("mousedown", Game._event_mousedown);
+    document.addEventListener("mouseup", Game._event_mouseup);
+    document.addEventListener("mousemove", Game._event_mousemove);
     _game = new Game(gfx, nx, ny, params.get("fps") != undefined);
     run_game();
 }
