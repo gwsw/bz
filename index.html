@@ -116,26 +116,36 @@ class ColorWheel {
     constructor(x, y, w, h) {
         const w2 = Math.floor(w/2);
         const h2 = Math.floor(h/2);
-        this.cx = x + w2;
-        this.cy = y + h2;
         this.radius = Math.min(w2,h2);
+        this.iradius = Math.floor(this.radius * .90);
+        this.samp_radius = Math.floor(this.radius * .20);
+        const isp = Math.floor(this.samp_radius * 1.00);
+        const osp = Math.floor((w - this.radius - this.samp_radius - isp) / 2);
+        this.samp_cx = osp + this.samp_radius;
+        this.samp_cy = y + h2;
+        this.cx = this.samp_cx + this.samp_radius + isp + this.radius;
+        this.cy = this.samp_cy;
         const sector_size = Math.PI/3;
         this.sectinfo = [
-            { base_theta: 0*sector_size, base_color: new Color(255,0,0),   red_incr: 0, green_incr: +1, blue_incr: 0, },
-            { base_theta: 1*sector_size, base_color: new Color(255,255,0), red_incr: -1, green_incr: 0, blue_incr: 0, },
-            { base_theta: 2*sector_size, base_color: new Color(0,255,0),   red_incr: 0, green_incr: 0, blue_incr: +1, },
-            { base_theta: 3*sector_size, base_color: new Color(0,255,255), red_incr: 0, green_incr: -1, blue_incr: 0, },
-            { base_theta: 4*sector_size, base_color: new Color(0,0,255),   red_incr: +1, green_incr: 0, blue_incr: 0, },
-            { base_theta: 5*sector_size, base_color: new Color(255,0,255), red_incr: 0, green_incr: 0, blue_incr: -1, },
+            { base_theta: 0*sector_size, base_color: new Color(255,0,0),   red_incr: 0,  green_incr: +1, blue_incr: 0,  },
+            { base_theta: 1*sector_size, base_color: new Color(255,255,0), red_incr: -1, green_incr: 0,  blue_incr: 0,  },
+            { base_theta: 2*sector_size, base_color: new Color(0,255,0),   red_incr: 0,  green_incr: 0,  blue_incr: +1, },
+            { base_theta: 3*sector_size, base_color: new Color(0,255,255), red_incr: 0,  green_incr: -1, blue_incr: 0,  },
+            { base_theta: 4*sector_size, base_color: new Color(0,0,255),   red_incr: +1, green_incr: 0,  blue_incr: 0,  },
+            { base_theta: 5*sector_size, base_color: new Color(255,0,255), red_incr: 0,  green_incr: 0,  blue_incr: -1, },
         ];
     }
     draw(gfx) {
+        this.draw_wheel(gfx);
+        this.draw_samp(gfx);
+    }
+    draw_wheel(gfx) {
         gfx.draw_circle(this.cx, this.cy, this.radius, config.color_fg);
         gfx.draw_circle(this.cx, this.cy, this.radius-2, config.color_bg);
-        const radius = Math.floor(this.radius * .90);
-        for (let dy = -radius; dy < radius; ++dy) {
-            for (let dx = -radius; dx < radius; ++dx) {
-                if (dx*dx + dy*dy <= radius*radius) {
+        const ir2 = this.iradius * this.iradius;
+        for (let dy = -this.iradius; dy < this.iradius; ++dy) {
+            for (let dx = -this.iradius; dx < this.iradius; ++dx) {
+                if (dx*dx + dy*dy <= ir2) {
                     const x = this.cx + dx; 
                     const y = this.cy + dy; 
                     gfx.draw_rect(x, y, 1, 1, this.color_from_pos(x, y));
@@ -143,19 +153,26 @@ class ColorWheel {
             }
         }
     }
+    draw_samp(gfx) {
+        gfx.draw_circle(this.samp_cx, this.samp_cy, this.samp_radius, config.color_fg);
+        gfx.draw_circle(this.samp_cx, this.samp_cy, this.samp_radius-2, config.color_bg);
+        gfx.draw_circle(this.samp_cx, this.samp_cy, this.samp_radius-8, _tap_color);
+    }
     color_from_pos(x, y) {
         const dx = x - this.cx;
         const dy = y - this.cy;
-        const rho = Math.sqrt(dx*dx + dy*dy);
+        let rho = Math.sqrt(dx*dx + dy*dy);
+        if (rho > this.iradius) rho = this.iradius;
         let theta = Math.atan2(dy,dx);
         if (theta < 0) theta += 2*Math.PI;
         const sector_size = Math.PI/3;
         const sector = Math.floor(theta / sector_size); // sector={0..5}
         const sinfo = this.sectinfo[sector];
-        const sfrac = 256 * (theta - sinfo.base_theta) / sector_size;
-        const red   = sinfo.base_color.red()   + (sinfo.red_incr * sfrac);
-        const green = sinfo.base_color.green() + (sinfo.green_incr * sfrac);
-        const blue  = sinfo.base_color.blue()  + (sinfo.blue_incr * sfrac);
+        let center_dark = (rho / this.iradius);
+        let sfrac = 256 * (theta - sinfo.base_theta) / sector_size;
+        const red   = center_dark * (sinfo.base_color.red()   + (sinfo.red_incr * sfrac));
+        const green = center_dark * (sinfo.base_color.green() + (sinfo.green_incr * sfrac));
+        const blue  = center_dark * (sinfo.base_color.blue()  + (sinfo.blue_incr * sfrac));
         return new Color(red, green, blue);
     }
 }; // class ColorWheel
@@ -232,15 +249,6 @@ class Board {
             }
         }
     }
-    draw_grid() {
-        const gfx = this.gfx;
-        const w = gfx.ctx.canvas.width;
-        const h = gfx.ctx.canvas.height;
-        for (let x = 0; x < w; x += 100)
-            gfx.draw_rect(x, 0, 1, h, config.color_fg);
-        for (let y = 0; y < h; y += 100)
-            gfx.draw_rect(0, y, w, 1, config.color_fg);
-    }
     draw_fps() {
         const font_h = 30;
         this.gfx.ctx.globalAlpha = 0.5;
@@ -256,7 +264,7 @@ class Board {
                 if (dx*dx + dy*dy <= tap_radius2) {
                     const xi = wrap(x+dx, this.nx);
                     const yi = wrap(y+dy, this.ny);
-                    this.squares[yi][xi].set(_tap_color.red(), _tap_color.green(), _tap_color.blue());
+                    this.squares[yi][xi].set(_tap_color.red()/256, _tap_color.green()/256, _tap_color.blue()/256);
                 }
             }
         }
@@ -340,6 +348,15 @@ class Game {
         } else {
             this.color_wheel = null;
         }
+    }
+    draw_grid() {
+        const gfx = this.gfx;
+        const w = gfx.ctx.canvas.width;
+        const h = gfx.ctx.canvas.height;
+        for (let x = 0; x < w; x += 100)
+            gfx.draw_rect(x, 0, 1, h, config.color_fg);
+        for (let y = 0; y < h; y += 100)
+            gfx.draw_rect(0, y, w, 1, config.color_fg);
     }
     static _event_mousedown(e) {
         if (_game == null) return;
