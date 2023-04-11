@@ -196,7 +196,10 @@ class Square {
         this.r2 = r2;
     }
     color() {
-        return new Color(this.r0 * 256, this.r1 * 256, this.r2 * 256);
+        let red   = this.r0 * 256; if (red > 255)   red = 255;
+        let green = this.r1 * 256; if (green > 255) green = 255;
+        let blue  = this.r2 * 256; if (blue > 255)  blue = 255;
+        return new Color(red, green, blue);
     }
     draw(gfx, sq_width, sq_height) {
         gfx.draw_rect(Math.floor(this.x*sq_width), Math.floor(this.y*sq_height), sq_width, sq_height, this.color());
@@ -232,6 +235,7 @@ class Board {
                 }
             }
         }
+        this.updating = false;
     }
     sq_size() {
         const canvas = this.gfx.ctx.canvas;
@@ -241,6 +245,7 @@ class Board {
         return { sq_width:sq_size, sq_height:sq_size };
     }
     draw() {
+        if (this.updating) return;
         const sq_size = this.sq_size();
         this.gfx.clear(config.color_bg);
         for (const row of this.squares) {
@@ -280,6 +285,7 @@ class Board {
         }
     }
     update(oboard) {
+        this.updating = true;
         const t0 = _tune0;
         const t1 = _tune1;
         const t2 = _tune2;
@@ -304,6 +310,7 @@ class Board {
                 oboard.squares[y][x].set(n0,n1,n2);
             }
         }
+        this.updating = false;
     }
 }; // class Board
 
