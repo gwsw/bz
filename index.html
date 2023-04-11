@@ -196,9 +196,9 @@ class Square {
         this.r2 = r2;
     }
     color() {
-        let red   = this.r0 * 256; if (red > 255)   red = 255;
-        let green = this.r1 * 256; if (green > 255) green = 255;
-        let blue  = this.r2 * 256; if (blue > 255)  blue = 255;
+        const red   = Math.min(Math.floor(this.r0 * 256), 255);
+        const green = Math.min(Math.floor(this.r1 * 256), 255);
+        const blue  = Math.min(Math.floor(this.r2 * 256), 255);
         return new Color(red, green, blue);
     }
     draw(gfx, sq_width, sq_height) {
@@ -269,7 +269,10 @@ class Board {
                 if (dx*dx + dy*dy <= tap_radius2) {
                     const xi = wrap(x+dx, this.nx);
                     const yi = wrap(y+dy, this.ny);
-                    this.squares[yi][xi].set(_tap_color.red()/256, _tap_color.green()/256, _tap_color.blue()/256);
+                    const red = _tap_color.red()/256;
+                    const green = _tap_color.green()/256;
+                    const blue = _tap_color.blue()/256;
+                    this.squares[yi][xi].set(red, green, blue);
                 }
             }
         }
@@ -449,7 +452,7 @@ function run_game() {
 
 function main() {
     munge_config();
-    _tap_color = new Color(0,0,0);
+    _tap_color = new Color(255,0,0);
     const params = new URLSearchParams(window.location.search);
     const canvas = canvas_resize();
     const gfx = new Graphics(canvas.getContext("2d"), canvas.height*.08);
